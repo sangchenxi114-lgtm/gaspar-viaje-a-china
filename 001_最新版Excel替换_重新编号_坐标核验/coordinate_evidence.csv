@@ -1,0 +1,6 @@
+﻿name,lat,lng,country,admin1,admin2,coordinate_source
+Macau,22.20056,113.54611,MO,02,,https://raw.githubusercontent.com/lutangar/cities.json/c05addfe79dce8a87076ef3fd487eab7e5fe4abd/cities.json
+Hong Kong,22.27832,114.17469,HK,,,https://raw.githubusercontent.com/lutangar/cities.json/c05addfe79dce8a87076ef3fd487eab7e5fe4abd/cities.json
+Guangzhou,23.11667,113.25,CN,30,4401,https://raw.githubusercontent.com/lutangar/cities.json/c05addfe79dce8a87076ef3fd487eab7e5fe4abd/cities.json
+Humen,22.81899,113.67306,CN,30,4419,https://raw.githubusercontent.com/lutangar/cities.json/c05addfe79dce8a87076ef3fd487eab7e5fe4abd/cities.json
+Huangpu,23.10855,113.45654,CN,30,4401,https://raw.githubusercontent.com/lutangar/cities.json/c05addfe79dce8a87076ef3fd487eab7e5fe4abd/cities.json
