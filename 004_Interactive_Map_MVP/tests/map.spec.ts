@@ -4,12 +4,17 @@ import Papa from 'papaparse';
 const records = Papa.parse<Record<string,string>>(readFileSync('public/data/places_geocoded.csv','utf8'), { header: true, skipEmptyLines: true }).data;
 
 test('14 records, five overview markers, city aggregation and Guangzhou drill-down', async ({ page }) => {
-  const tileLoaded = page.waitForResponse(response => response.url().includes('tile.openstreetmap.org') && response.status() === 200);
+  const tileLoaded = page.waitForResponse(response => response.url().includes('tiles.openfreemap.org/planet/') && response.url().endsWith('.pbf') && response.status() === 200);
   await page.goto('/');
-  await tileLoaded;
+  const tileResponse = await tileLoaded;
+  expect(tileResponse.headers()['content-type']).toMatch(/protobuf|mapbox-vector-tile|octet-stream/);
+  expect((await tileResponse.body()).length).toBeGreaterThan(100);
+  await expect(page.locator('.maplibregl-ctrl-attrib-inner')).toContainText('OpenFreeMap');
+  await expect(page.locator('.maplibregl-ctrl-attrib-inner')).toContainText('OpenStreetMap');
   await expect(page.getByTestId('record-count')).toHaveText('14 条历史记录');
   await expect(page.getByTestId('record-list').locator('li')).toHaveCount(14);
   await expect(page.locator('.map-marker.overview')).toHaveCount(5, { timeout: 20000 });
+  await page.screenshot({ path: test.info().outputPath('openfreemap-overview.png') });
   await expect(page.getByRole('button', { name: '澳门，2条记录', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '澳门，2条记录', exact: true }).click();
   await expect(page.getByTestId('record-list').locator('li')).toHaveCount(2);

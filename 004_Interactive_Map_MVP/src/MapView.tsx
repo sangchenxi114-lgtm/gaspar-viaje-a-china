@@ -1,15 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import maplibregl, { Map as LibreMap, Marker, type StyleSpecification } from 'maplibre-gl';
+import maplibregl, { Map as LibreMap, Marker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { makeGroups, type Group, type Place } from './data';
 export type Mode = 'overview' | 'detail';
 export interface CameraRequest { serial: number; mode?: Mode; coordinates?: [number, number] }
-const style: StyleSpecification = {
-  version: 8,
-  sources: { osm: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, maxzoom: 19,
-    attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>' } },
-  layers: [{ id: 'basemap', source: 'osm', type: 'raster' }],
-};
+// Public, key-free vector basemap; source metadata supplies required attribution.
+const style = 'https://tiles.openfreemap.org/styles/positron';
 // Screen-space grouping leaves coordinates intact and gives close markers one selectable record list.
 function visibleGroups(map: LibreMap, groups: Group[]): Group[] {
   const result: Group[] = [], used = new Set<number>();

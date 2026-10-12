@@ -37,9 +37,11 @@ CSV以UTF-8 BOM保存，由Papa Parse读取，缺值在展示层处理。日期�
 
 ## 底图与署名
 
-使用免费OpenStreetMap标准栅格图层：`https://tile.openstreetmap.org/{z}/{x}/{y}.png`，无需密钥。页面地图持续显示“© OpenStreetMap contributors”及版权链接；MapLibre提供交互渲染。
+使用OpenFreeMap托管的Positron矢量底图：`https://tiles.openfreemap.org/styles/positron`。此公开实例无需登记或API密钥；不使用OSM志愿者的标准瓦片服务器。图层元数据自动提供“OpenFreeMap © OpenMapTiles Data from OpenStreetMap”署名及链接，MapLibre在地图上持续显示。
 
-遵守[OSM瓦片使用政策](https://operations.osmfoundation.org/policies/tiles/)，保留浏览器缓存，不进行预取、离线下载或批量抓取。此端点适用于轻量本地审阅，不提供服务等级承诺；若后续公开部署或扩大流量，应另行评估符合使用政策的图层供应方。本次不部署。底图网络失败时显示提示，史料仍可阅读。
+[OpenFreeMap官方说明](https://openfreemap.org/)明确允许在网站和应用中免费使用公开实例，目前没有地图浏览量或请求数量上限，不需要API密钥。按[官方MapLibre快速指南](https://openfreemap.org/quick_start/)接入并保留必需署名。公共实例没有本项目专属服务等级承诺；只请求当前视图需要的图层，不批量预取／下载。本次不部署。
+
+此前直接访问OSM志愿者服务器，可能受到请求识别、Referer、缓存或共享出口策略的阻挡；403页面无法单独确定是哪条规则被触发，详见[OSM瓦片政策](https://operations.osmfoundation.org/policies/tiles/)。替换提供方不改变任何历史数据。
 
 ## 验证
 
@@ -51,6 +53,10 @@ Playwright使用系统Chromium（若存在）；也可设置 `PLAYWRIGHT_CHROMIU
 
 测试覆盖14条记录加载、概览5个标记、城市聚合、广州7条详细记录、手动缩放切换、关联记录选择、全部14段西班牙语原文与来源链接、6条缺失日期、精度提示、手机布局及面板收起／展开、CSV加载失败提示。
 
-云环境浏览器可能不信任会话代理CA，导致浏览器直接请求瓦片报证书错误。本环境测试对OSM瓦片使用**仅测试进程内**的实际HTTPS代理请求，采用平台提供的 `CODEX_PROXY_CERT` 验证TLS，再将真实响应交给测试浏览器。没有关闭TLS验证、没有持久修改浏览器或系统信任库、没有替换成假瓦片；应用代码仍直接使用标准OSM图层。普通本地浏览器不需要该测试适配。
+云环境浏览器可能不信任会话代理CA，导致浏览器直接请求瓦片报证书错误。本环境测试对OpenFreeMap图层资源使用**仅测试进程内**的实际HTTPS代理请求，采用平台提供的 `CODEX_PROXY_CERT` 验证TLS，再将真实响应交给测试浏览器。没有关闭TLS验证、没有持久修改浏览器或系统信任库、没有替换成假瓦片；应用代码仍直接使用OpenFreeMap图层。普通本地浏览器不需要该测试适配。
 
 阶段03最后修订仅涉及sequence与编号列，以及相应审核引用。阶段04以修订后的CSV为基准；001、002及其他既有文件保持不变。
+
+## 更新现有Codespaces预览
+
+在仓库根目录运行 `git pull --ff-only`。已经运行的Vite会热更新；回到现有5173端口的预览页面刷新即可。若仍是旧底图，使用强制刷新；若Vite已停止，进入本目录运行 `npm run dev`。此次未改变依赖，无需重新安装。
