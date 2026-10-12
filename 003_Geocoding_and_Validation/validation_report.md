@@ -2,11 +2,11 @@
 
 ## 结果
 
-14条全部重新审查：13条有来源坐标，1条历史旧址无法可靠确认而保留null。5条城市级、6条近似范围级、2条现代建筑级；未创建地图或JSON。
+14条均有坐标与来源：5条城市级、7条近似定位、2条现代建筑级。P031现今旧址按用户提供的已核实资料更新；未创建地图或JSON。
 
 ## 权威输入与保护
 
-唯一权威输入：`001_最新版Excel替换_重新编号_坐标核验/places_authoritative.xlsx`，为最新版人工Excel原样副本。SHA256：`f8dcb5f710664716dfa4c5c67828178af47fced517abfeb60d807ca245191197`。全部原16列保留，仅更新latitude、longitude、coordinate_status，新增coordinate_source。原id列名、编号、sequence（含间隔）均不变；没有沿用001轮派生表重新编号。
+基础权威输入：`001_最新版Excel替换_重新编号_坐标核验/places_authoritative.xlsx`，为最新版人工Excel原样副本。SHA256：`f8dcb5f710664716dfa4c5c67828178af47fced517abfeb60d807ca245191197`。全部原16列保留；此前更新latitude、longitude、coordinate_status并新增coordinate_source。本次仅按用户指示更新P031的modern_name、latitude、longitude、display_level、location_precision、coordinate_status及coordinate_source；display_level与location_precision的值本已相同。其他13条所有字段及P031其余手工字段均不变。原id列名、编号、sequence（含间隔）均不变；没有沿用001轮派生表重新编号。
 
 ## 全部14条坐标审核
 
@@ -25,7 +25,7 @@
 | P025 | 海幢寺 | 23.1079575 | 113.2538565 | approximate：海幢寺现存寺院范围代表点 | [来源](https://nominatim.openstreetmap.org/lookup?osm_ids=W363853167&format=jsonv2) |
 | P026 | 镇海楼 | 23.1406034 | 113.2602757 | exact：镇海楼现存建筑轮廓内部代表点 | [来源](https://nominatim.openstreetmap.org/lookup?osm_ids=W146688561&format=jsonv2) |
 | P028 | 广州圣心大教堂 | 23.1173975 | 113.2547256 | exact：圣心大教堂现存主建筑轮廓内部代表点 | [来源](https://nominatim.openstreetmap.org/lookup?osm_ids=W542890833&format=jsonv2) |
-| P031 | 两广总督衙门 | null | null | unknown：历史衙门旧址未能可靠确定 | null |
+| P031 | 两广总督衙门旧址（今广东省民政厅） | 23.13196 | 113.26091 | approximate：广州市越华路118号现今旧址近似点 | [来源](https://www.yuexiu.gov.cn/data/cms/category/xzzfsj/kejj1548668945490809.pdf) |
 
 ## 历史识别及人工核验
 
@@ -42,31 +42,31 @@
 - **P025 海幢寺**：Wikidata Q7222524与OSM宗教场所范围点相近，排除了同名公交站。现代寺院经过破坏与修复，原猪圈及19世纪院落位置未核验；标approximate，不证明原文历史识别。 交叉核查：[条目](https://www.wikidata.org/wiki/Q7222524)。
 - **P026 镇海楼**：OSM建筑对象关联Q9373800、标注五层楼；定位现存建筑而非证明1880年代建筑完整性。OSM start_date=1928与塔的早期建造历史不同，需核验重建沿革。exact仅指建筑级定位，不代表测量误差为零或历史匹配已证实。 交叉核查：[条目](https://www.openstreetmap.org/api/0.6/way/146688561.json)。
 - **P028 广州圣心大教堂**：OSM主教堂建筑关联Q1195445，Wikidata点相近。OSM start_date=1888，晚于项目旅行年代；在建阶段的观察及“鞑靼区中心”的对应须核验。exact只表示现代建筑级定位，不更改原日期或引述。 交叉核查：[条目](https://www.openstreetmap.org/api/0.6/way/542890833.json)。
-- **P031 两广总督衙门**：对“两广总督署／两广总督衙门”的OSM检索均未返回匹配；未取得可核查、可地理配准的旧址史料或历史地图。不能把机构条目、城市中心或其他时期衙门替作1880年代到访建筑，故坐标保持null。
+- **P031 两广总督衙门旧址（今广东省民政厅）**：按用户提供的已核实资料，对应广州市越华路118号，今广东省民政厅；采用用户提供的23.13196、113.26091作为现今旧址的近似定位，来源为越秀区政府PDF。不是历史衙门建筑轮廓的精确坐标，也不据此补写到访日期或确认旅行连线。 [用户提供的官方资料](https://www.yuexiu.gov.cn/data/cms/category/xzzfsj/kejj1548668945490809.pdf)。坐标与识别依据按用户核实信息录入，未声明本轮独立核实PDF或坐标系。
 
 ## 一致性与缺失检查
 
 - 权威Excel、更新Excel和CSV：均14条，id及行序完全一致；无重复id或sequence。sequence不连续是原始人工值，不是校验错误。
-- 名称、日期、西班牙语原文、中文译文、sequence、display_level、location_precision及图像／模型字段逐单元格核验一致；Excel保留原值类型。CSV采用UTF-8 BOM，往返读取所有字段一致。
+- 除本次明确授权的P031名称与坐标字段外，其他13条全部字段以及P031日期、西班牙语原文、中文译文、sequence、display_level、location_precision及图像／模型等字段逐单元格核验不变；Excel保留原值类型。CSV采用UTF-8 BOM，往返读取所有字段一致。
 - 更新Excel保留原工作表，包括无业务记录的Sheet1；CSV只导出places表。
 - 日期缺失6条：P022、P023、P025、P026、P028、P031。保留原文本null，未补入访问日期。
 - image_url及model_3d_url共14条均为原始文本null；未虚构图像或模型链接。
-- 坐标缺失：P031，两列及来源均null，coordinate_status=unknown。其余13条均成对存在，数值范围合法并有实际访问过的来源数据。
+- 坐标缺失：0条。14条坐标成对存在、范围合法且有来源URL；P031采用用户核实的现今旧址资料，其余13条来源及坐标不变。
 - 需要核验的尺度差异：P022、P023、P025的location_precision=site保留，但目前来源只支持寺院范围点，故coordinate_status=approximate。
 - P026、P028的exact仅指现代建筑级点，不是定位零误差或历史识别已确认。坐标小数位数不等于真实空间精度。
 
 ## 旅行路线限制
 
-所有14条均不得仅凭sequence自动连接成“已确认”旅行路线。城市级记录只能用于概览。P004节庆对应、P008总督府、P012虎门河口与现代镇范围、P013历史Wampoa与现代区范围、P022/P023具体历史建筑、P028在建教堂及P031衙门均需史料确认。P022–P031六条记录没有日期；不能把它们自动继承为1882-12-08，也不能按编号假定同日实际到访。原引述中的叙事性导览不一律等同于亲历证明。当前没有依据认定这14条中某条明确非亲历；旧版中被删除的瓷塔等记录不恢复。
+所有14条均不得仅凭sequence自动连接成“已确认”旅行路线。城市级记录只能用于概览。P004节庆对应、P008总督府、P012虎门河口与现代镇范围、P013历史Wampoa与现代区范围、P022/P023具体历史建筑、P028在建教堂均需史料确认。P031現今旧址按用户核实资料更新，但仍不能仅凭坐标确认加斯帕尔到访日期或旅行连线。P022–P031六条记录没有日期；不能把它们自动继承为1882-12-08，也不能按编号假定同日实际到访。原引述中的叙事性导览不一律等同于亲历证明。当前没有依据认定这14条中某条明确非亲历；旧版中被删除的瓷塔等记录不恢复。
 
 ## 来源与实际限制
 
 已读取Wikidata EntityData坐标和OSM Nominatim检索／lookup数据，并检查镇海楼、圣心大教堂的OSM建筑对象标签。城市代表点无需与旧城市中心完全重合；虎门及黄埔使用明确现代区域的代表点，并记录与历史对象的差异。
 
-广州市文化广电旅游局[博物馆目录页](https://wglj.gz.gov.cn/mdjl/cjwt/ggfw/content/post_9700460.html)可访问，但附属Excel返回403，故未作为实际核验依据。部分Wiki API受403限制，Google搜索返回反自动化页面；来源可访问性不等于所有API可用。本轮没有取得可核查并地理配准的相关历史地图，衙门旧址保持未识别，不扩大坐标准确性声明。
+广州市文化广电旅游局[博物馆目录页](https://wglj.gz.gov.cn/mdjl/cjwt/ggfw/content/post_9700460.html)可访问，但附属Excel返回403，故未作为实际核验依据。部分Wiki API受403限制，Google搜索返回反自动化页面；来源可访问性不等于所有API可用。本轮没有取得可核查并地理配准的相关历史地图，P031现今旧址现按用户提供的已核实资料更新；历史建筑轮廓仍未地理配准，维持approximate，不扩大坐标准确性声明。
 
-OpenStreetMap数据 © OpenStreetMap contributors，ODbL；Wikidata结构化数据CC0。坐标统一WGS84，不混用中国地图偏移坐标。
+OpenStreetMap数据 © OpenStreetMap contributors，ODbL；Wikidata结构化数据CC0。此前坐标使用WGS84。本次P031坐标按用户给定值原样录入，未独立核实其坐标系或进行偏移转换。
 
 ## 保存与验证
 
-所有此前文件（含未提交的002诊断文件夹）经SHA256核对未改变；仅新增本文件夹内四个指定文件。已完成14条记录、字段保留、CSV/Excel一致性、UTF-8往返、坐标范围及来源存在性校验。数据尚待用户历史识别审阅，不构建地图。
+本次仅原位更新003文件夹内既有四个指定文件；其他文件（含未提交的002诊断文件夹）经SHA256核对未改变。未创建新文件夹或重复产物。已完成14条记录、字段保留、CSV/Excel一致性、UTF-8往返、坐标范围及来源存在性校验。数据尚待用户历史识别审阅，不构建地图。
