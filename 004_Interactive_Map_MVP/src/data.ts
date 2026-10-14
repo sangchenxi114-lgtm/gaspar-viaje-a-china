@@ -6,6 +6,7 @@ export interface Place {
   location_precision: string; latitude: number | null; longitude: number | null;
   coordinate_status: Precision; place_type: string | null; original_spanish: string | null;
   chinese_translation: string | null; coordinate_source: string | null;
+  page_number?: string | null; historical_notes?: string | null;
 }
 export interface Group { key: string; label: string; coordinates: [number, number]; records: Place[] }
 export const isPresent = (value: string | undefined | null) => Boolean(value?.trim() && value.trim().toLowerCase() !== 'null');
@@ -27,7 +28,8 @@ export function parsePlaces(text: string): Place[] {
     if (isPresent(row.coordinate_source) && !/^https:\/\//.test(row.coordinate_source)) throw new Error('坐标来源必须为HTTPS链接。');
     return { ...row, sequence: Number(row.sequence), date: nullable(row.date), gaspar_name: nullable(row.gaspar_name),
       city: nullable(row.city), latitude: lat, longitude: lon, place_type: nullable(row.place_type),
-      original_spanish: nullable(row.original_spanish), chinese_translation: nullable(row.chinese_translation), coordinate_source: nullable(row.coordinate_source) } as Place;
+      original_spanish: nullable(row.original_spanish), chinese_translation: nullable(row.chinese_translation), coordinate_source: nullable(row.coordinate_source),
+      page_number: nullable(row.page_number), historical_notes: nullable(row.historical_notes) } as Place;
   }).sort((a, b) => a.sequence - b.sequence);
   if (records.length !== 14 || records.some((r, i) => r.sequence !== i + 1)) throw new Error('数据应包含按1–14排列的14条记录。');
   return records;
@@ -45,3 +47,13 @@ export function makeGroups(records: Place[], level: 'overview' | 'detail'): Grou
   return [...result.values()];
 }
 export const precisionLabels: Record<Precision, string> = { exact: '现代建筑定位点', approximate: '近似定位点', 'city-level': '城市代表点', unknown: '坐标未确定' };
+
+// Formatting verified source values only: no page inference from sequence or dates.
+export function formatPageReference(value: string | null | undefined): string | null {
+  if (!isPresent(value)) return null;
+  const page = value!.trim().replace(/^pp?\.\s*/i, '');
+  if (/^[1-9]\d*$/.test(page)) return `p. ${page}`;
+  const range = page.match(/^([1-9]\d*)\s*[-–—]\s*([1-9]\d*)$/);
+  if (range && Number(range[2]) >= Number(range[1])) return `pp. ${range[1]}–${range[2]}`;
+  return null;
+}

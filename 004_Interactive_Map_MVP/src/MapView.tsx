@@ -27,12 +27,12 @@ function visibleGroups(map: LibreMap, groups: Group[]): Group[] {
   }
   return result;
 }
-export default function MapView({ records, mode, camera, onMode, onGroup }: {
-  records: Place[]; mode: Mode; camera: CameraRequest;
+export default function MapView({ records, mode, camera, panelOpen, onMode, onGroup }: {
+  records: Place[]; mode: Mode; camera: CameraRequest; panelOpen: boolean;
   onMode: (mode: Mode) => void; onGroup: (group: Group) => void;
 }) {
   const container = useRef<HTMLDivElement>(null), mapRef = useRef<LibreMap | null>(null), markers = useRef<Marker[]>([]);
-  const latest = useRef({ records, mode, onMode, onGroup }); latest.current = { records, mode, onMode, onGroup };
+  const latest = useRef({ records, mode, panelOpen, onMode, onGroup }); latest.current = { records, mode, panelOpen, onMode, onGroup };
   const [zoom, setZoom] = useState(8.1), [moving, setMoving] = useState(false);
   const [ready, setReady] = useState(false), [tileError, setTileError] = useState(false), [fatal, setFatal] = useState(false);
   const redraw = useRef<() => void>(() => {});
@@ -45,7 +45,12 @@ export default function MapView({ records, mode, camera, onMode, onGroup }: {
         minZoom: 5, maxZoom: 19, attributionControl: { compact: true }, cooperativeGestures: false });
     } catch { setFatal(true); return; }
     mapRef.current = map;
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    const reservePanel = () => {
+      const right = latest.current.panelOpen && map.getContainer().clientWidth >= 900 ? 488 : 0;
+      if (map.getPadding().right !== right) map.setPadding({top: 0, right, bottom: 0, left: 0});
+    };
+    reservePanel();
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
     redraw.current = () => {
       markers.current.forEach(marker => marker.remove());
@@ -74,10 +79,15 @@ export default function MapView({ records, mode, camera, onMode, onGroup }: {
       const nextMode: Mode = map.getZoom() >= 11.5 && inGuangzhou ? 'detail' : 'overview';
       latest.current.onMode(nextMode); redraw.current();
     });
-    const observer = new ResizeObserver(() => { map.resize(); redraw.current(); }); observer.observe(container.current);
+    const observer = new ResizeObserver(() => { map.resize(); reservePanel(); redraw.current(); }); observer.observe(container.current);
     return () => { observer.disconnect(); markers.current.forEach(marker => marker.remove()); markers.current = []; map.remove(); mapRef.current = null; };
   }, []);
   useEffect(() => { if (ready) redraw.current(); }, [mode, records, ready]);
+  useEffect(() => {
+    const map = mapRef.current; if (!map) return;
+    const right = panelOpen && map.getContainer().clientWidth >= 900 ? 488 : 0;
+    map.setPadding({top: 0, right, bottom: 0, left: 0});
+  }, [panelOpen]);
   useEffect(() => {
     const map = mapRef.current; if (!map || !camera.serial) return;
     if (camera.coordinates) map.flyTo({ center: camera.coordinates, zoom: camera.mode === 'detail' ? Math.max(14, map.getZoom()) : 9.5, duration: 1100 });
@@ -88,12 +98,11 @@ export default function MapView({ records, mode, camera, onMode, onGroup }: {
         map.fitBounds(bounds, { padding: { top: 140, bottom: 55, left: 35, right: 35 }, maxZoom: 13.5, duration: 1300 });
       } else map.flyTo({ center: [113.248, 23.123], zoom: 13.5, duration: 1300 });
     }
-    else map.fitBounds([[113.08, 22.10], [114.32, 23.3]], { padding: 65, duration: 1100 });
+    else map.fitBounds([[113.08, 22.10], [114.32, 23.3]], { padding: {top: 65, left: 65, bottom: 65, right: latest.current.panelOpen && map.getContainer().clientWidth >= 900 ? 518 : 65}, duration: 1100 });
   }, [camera]);
   return <section className="map-section" aria-label="历史地点地图">
     <div ref={container} className="map-canvas" data-testid="map-canvas" data-zoom={zoom} aria-busy={!ready || moving} />
-    <div className="map-heading"><span className="eyebrow">{mode === 'overview' ? 'PEARL RIVER DELTA' : 'CANTÓN · GUANGZHOU'}</span><h2>{mode === 'overview' ? '珠江三角洲' : '广州 · 城市细读'}</h2><p>{mode === 'overview' ? '从城市概览，走入历史现场' : '7条地点记录 · 当代地理中的历史线索'}</p></div>
-    <div className="map-key"><span className="legend-dot" />{mode === 'overview' ? '城市／区域记录' : '详细地点记录'}<span className="key-divider" />相邻点可合并选择</div>
+    <div className="map-heading"><h2>{mode === 'overview' ? '珠江三角洲' : '广州 · 城市细读'}</h2></div>
     {fatal ? <div role="alert" className="map-notice">地图无法初始化。请使用支持WebGL的浏览器；右侧记录仍可阅读。</div> : !ready ? <div className="map-loading">正在展开地图…</div> : null}
     {tileError && !fatal && <div className="tile-notice" role="status">部分底图未能加载，地点与文献仍可阅读。请检查网络后刷新。</div>}
   </section>;
