@@ -19,7 +19,7 @@ export function buildJourneyStops(records: Place[]): JourneyStop[] {
 }
 export const SEGMENT_SECONDS = 3.2;
 // Presentation-only cubic interpolation; sampled points are not historical waypoints.
-export const CURVE_SAMPLES = 32;
+export const CURVE_SAMPLES = 64;
 export function positionAt(stops: JourneyStop[], progress: number): [number, number] {
   const value = Math.max(0, Math.min(progress, stops.length - 1)), i = Math.floor(value), t = value - i;
   const a = stops[i].coordinates, b = stops[Math.min(i + 1, stops.length - 1)].coordinates;
@@ -30,6 +30,15 @@ export function positionAt(stops: JourneyStop[], progress: number): [number, num
     return [origin[0] + sign * dx / length * distance * .28, origin[1] + sign * dy / length * distance * .28];
   };
   const c = control(a, before, b, 1), d = control(b, a, after, -1), u = 1 - t;
+  // Limit each handle near tight urban turns to avoid wide detours from regional legs.
+  const limit = (origin: [number, number], handle: [number, number], adjacent: [number, number]) => {
+    const length = Math.hypot(handle[0]-origin[0], handle[1]-origin[1]);
+    const maximum = Math.min(distance, Math.hypot(adjacent[0]-origin[0], adjacent[1]-origin[1])) * .28;
+    const scale = length ? Math.min(1, maximum / length) : 0;
+    handle[0] = origin[0] + (handle[0]-origin[0])*scale; handle[1] = origin[1] + (handle[1]-origin[1])*scale;
+  };
+  if(i > 0) limit(a,c,before);
+  if(i+2 < stops.length) limit(b,d,after);
   return [0, 1].map(axis => u*u*u*a[axis] + 3*u*u*t*c[axis] + 3*u*t*t*d[axis] + t*t*t*b[axis]) as [number, number];
 }
 export function journeyCoordinates(stops: JourneyStop[], progress: number): [number, number][] {
@@ -41,8 +50,12 @@ export function journeyCoordinates(stops: JourneyStop[], progress: number): [num
   return points;
 }
 
-export function journeyLineLayer(mobile: boolean): LineLayerSpecification {
-  return { id: 'journey-route', type: 'line', source: 'journey-route',
+export function journeyLineLayers(): LineLayerSpecification[] {
+  return [
+    { id: 'journey-route-outer', width: 14, opacity: .12, blur: 7 },
+    { id: 'journey-route-inner', width: 8, opacity: .22, blur: 3 },
+    { id: 'journey-route', width: 3, opacity: 1, blur: 0 },
+  ].map(({ id, width, opacity, blur }) => ({ id, type: 'line', source: 'journey-route',
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': '#8D2017', 'line-width': mobile ? 1.5 : 2 } };
+    paint: { 'line-color': '#8D2017', 'line-width': width, 'line-opacity': opacity, 'line-blur': blur } }));
 }

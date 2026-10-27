@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type Map as LibreMap, Marker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { journeyCoordinates, journeyLineLayer, positionAt, SEGMENT_SECONDS, type JourneyStop } from './journey';
+import { journeyCoordinates, journeyLineLayers, positionAt, SEGMENT_SECONDS, type JourneyStop } from './journey';
 import type { Place } from './data';
 
 function readingPadding(map: LibreMap, panelOpen: boolean) {
@@ -19,25 +19,24 @@ function readingPadding(map: LibreMap, panelOpen: boolean) {
 export default function JourneyMap({ stops, panelOpen, onStop }: { stops: JourneyStop[]; panelOpen: boolean; onStop: (record: Place) => void }) {
   const container = useRef<HTMLDivElement>(null), mapRef = useRef<LibreMap | null>(null);
   const [progress, setProgress] = useState(0), [playing, setPlaying] = useState(false), [speed, setSpeed] = useState(1);
-  const [ready, setReady] = useState(false), [mapIdle, setMapIdle] = useState(false), [mapError, setMapError] = useState('');
+  const [ready, setReady] = useState(false), [mapError, setMapError] = useState('');
   const progressRef = useRef(0), playingRef = useRef(false), speedRef = useRef(1);
   const selectRef = useRef<(index: number) => void>(() => {});
   const latest = useRef({ onStop, panelOpen }); latest.current = { onStop, panelOpen };
-  const elements = useRef<HTMLElement[]>([]), [mobile, setMobile] = useState(() => window.innerWidth <= 650);
+  const elements = useRef<HTMLElement[]>([]);
+  const drawRef = useRef<(value: number, following: boolean) => void>(() => {});
   const maximum = stops.length - 1, active = Math.min(Math.floor(progress), maximum), finished = progress >= maximum;
   const current = stops[active];
-  function seek(index: number) { playingRef.current = false; setPlaying(false); progressRef.current = index; setProgress(index); }
+  function seek(index: number) { playingRef.current = false; setPlaying(false); progressRef.current = index; setProgress(index); drawRef.current(index, false); }
   selectRef.current = seek;
   function restart() { seek(0); }
   function togglePlayback() {
     if (finished) { progressRef.current = 0; setProgress(0); }
+    mapRef.current?.stop();
+    if (playingRef.current) setProgress(progressRef.current);
     playingRef.current = !playingRef.current; setPlaying(playingRef.current);
   }
   useEffect(() => { speedRef.current = speed; }, [speed]);
-  useEffect(() => {
-    const query = window.matchMedia('(max-width: 650px)'); const change = () => setMobile(query.matches);
-    query.addEventListener('change', change); return () => query.removeEventListener('change', change);
-  }, []);
   useEffect(() => {
     if (!container.current || !stops.length) return;
     let map: LibreMap;
@@ -51,7 +50,6 @@ export default function JourneyMap({ stops, panelOpen, onStop }: { stops: Journe
     pad();
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
-    const leaders = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); leaders.classList.add('journey-leaders'); container.current.append(leaders);
     const markers = stops.map((stop, index) => {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'journey-marker upcoming';
       const number = document.createElement('span'); number.textContent = String(stop.step);
@@ -59,63 +57,49 @@ export default function JourneyMap({ stops, panelOpen, onStop }: { stops: Journe
       button.append(number, label); button.setAttribute('aria-label', `漫游第${stop.step}站 ${stop.name}`);
       button.title = `${stop.name} · ${stop.english}`; button.addEventListener('click', () => selectRef.current(index));
       elements.current[index] = button;
-      return new Marker({ element: button, anchor: 'center' }).setLngLat(stop.coordinates).addTo(map);
+      return new Marker({ element: button, anchor: 'center', subpixelPositioning: true }).setLngLat(stop.coordinates).addTo(map);
     });
-    // Screen-space decluttering only; marker geographic anchors and source coordinates stay unchanged.
+    // No offsets or connector lines: markers remain at their verified geographic anchors.
     const arrange = () => {
       if (container.current) container.current.dataset.actualCameraLng = String(map.getCenter().lng);
       const occupied: { x: number; y: number }[] = [];
       const activeIndex = Math.min(Math.floor(progressRef.current), stops.length - 1);
-      leaders.replaceChildren();
       const order = [activeIndex, ...stops.map((_, index) => index).filter(index => index !== activeIndex)];
       for (const index of order) {
         const point = map.project(stops[index].coordinates);
-        let offset: [number, number] = [0, 0];
-        search: for (let ring = 0; ring <= 12; ring++) {
-          const count = ring ? ring * 8 : 1;
-          for (let n = 0; n < count; n++) {
-            const angle = n / count * Math.PI * 2;
-            const candidate: [number, number] = [Math.cos(angle) * ring * 44, Math.sin(angle) * ring * 44];
-            const x = point.x + candidate[0], y = point.y + candidate[1];
-            if (occupied.every(other => Math.hypot(x - other.x, y - other.y) >= 44)) { offset = candidate; break search; }
-          }
-        }
-        occupied.push({ x: point.x + offset[0], y: point.y + offset[1] });
-        markers[index].setOffset(offset);
-        if (Math.hypot(...offset) > 1) {
-          const line = document.createElementNS(leaders.namespaceURI, 'line');
-          for (const [key, value] of Object.entries({ x1: point.x, y1: point.y, x2: point.x + offset[0], y2: point.y + offset[1] })) line.setAttribute(key, String(value));
-          leaders.append(line);
-        }
+        elements.current[index].dataset.anchorX = String(point.x);
+        elements.current[index].dataset.anchorY = String(point.y);
+        const visible = occupied.every(other => Math.hypot(point.x - other.x, point.y - other.y) >= 40);
+        elements.current[index].style.visibility = visible ? 'visible' : 'hidden';
+        if (visible) occupied.push(point);
       }
     };
+    map.on('move', arrange);
     map.on('render', arrange);
     map.on('load', () => {
       map.addSource('journey-route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      map.addLayer(journeyLineLayer(window.innerWidth <= 650));
+      journeyLineLayers().forEach(layer => map.addLayer(layer));
       setReady(true);
     });
-    map.on('movestart', () => setMapIdle(false));
-    map.on('idle', () => setMapIdle(true));
+    map.on('movestart', () => { if (container.current) container.current.dataset.mapIdle = 'false'; });
+    map.on('idle', () => { if (container.current) container.current.dataset.mapIdle = 'true'; });
     map.on('error', () => setMapError('部分底图暂时无法加载，漫游控制与史料仍可使用。'));
     const resize = new ResizeObserver(() => { map.resize(); pad(); }); resize.observe(container.current);
     const controls = container.current.parentElement?.querySelector('.journey-controls'); if (controls) resize.observe(controls);
-    return () => { resize.disconnect(); leaders.remove(); markers.forEach(marker => marker.remove()); elements.current = []; map.remove(); mapRef.current = null; };
+    return () => { resize.disconnect(); markers.forEach(marker => marker.remove()); elements.current = []; map.remove(); mapRef.current = null; };
   }, [stops]);
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
     map.setPadding(readingPadding(map, panelOpen));
   }, [panelOpen]);
   useEffect(() => {
-    const map = mapRef.current;
-    if (ready && map?.getLayer('journey-route')) map.setPaintProperty('journey-route', 'line-width', mobile ? 1.5 : 2);
-  }, [mobile, ready]);
-  useEffect(() => {
     let frame = 0, last = 0;
     const tick = (time: number) => {
       if (last && playingRef.current && ready) {
         const next = Math.min(maximum, progressRef.current + Math.min(time - last, 100) / 1000 * speedRef.current / SEGMENT_SECONDS);
-        progressRef.current = next; setProgress(next);
+        const previous = progressRef.current; progressRef.current = next;
+        drawRef.current(next, true);
+        if (Math.floor(previous) !== Math.floor(next) || next >= maximum) setProgress(next);
         if (next >= maximum) { playingRef.current = false; setPlaying(false); }
       }
       last = time; frame = requestAnimationFrame(tick);
@@ -125,32 +109,37 @@ export default function JourneyMap({ stops, panelOpen, onStop }: { stops: Journe
   useEffect(() => { latest.current.onStop(stops[active].record); }, [active, stops]);
   useEffect(() => {
     const map = mapRef.current; if (!ready || !map) return;
-    setMapIdle(false);
-    const coordinates = journeyCoordinates(stops, progress);
-    (map.getSource('journey-route') as GeoJSONSource).setData({ type: 'FeatureCollection', features: coordinates.length >= 2 ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } }] : [] });
-    elements.current.forEach((element, index) => {
-      const status = index === active ? 'active' : index < active ? 'completed' : 'upcoming';
-      element.classList.remove('active', 'completed', 'upcoming'); element.classList.add(status); element.dataset.status = status;
-      element.setAttribute('aria-current', index === active ? 'step' : 'false');
-    });
-    if (progress === 0 && !playing) {
-      map.easeTo({ center: [113.72, 22.7], zoom: 8.1, duration: 700 });
-    } else {
-      const zoom = progress < 3 ? 8.1 : 8.1 + Math.min((progress - 3) / 2, 1) * 5.4;
-      let center = positionAt(stops, progress);
-      if (progress < .25) {
-        const blend = progress / .25;
+    let previousActive = -1;
+    drawRef.current = (value, following) => {
+      const activeIndex = Math.min(Math.floor(value), stops.length - 1);
+      const coordinates = journeyCoordinates(stops, value);
+      (map.getSource('journey-route') as GeoJSONSource).setData({ type: 'FeatureCollection', features: coordinates.length >= 2 ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } }] : [] });
+      if (container.current) {
+        container.current.dataset.progress = String(value);
+        container.current.dataset.routePoints = String(value > 0 ? Math.ceil(value) + 1 : 0);
+      }
+      if (activeIndex !== previousActive) {
+        elements.current.forEach((element, index) => {
+          const status = index === activeIndex ? 'active' : index < activeIndex ? 'completed' : 'upcoming';
+          element.classList.remove('active', 'completed', 'upcoming'); element.classList.add(status); element.dataset.status = status;
+          element.setAttribute('aria-current', index === activeIndex ? 'step' : 'false');
+        });
+        previousActive = activeIndex;
+      }
+      const zoom = value < 3 ? 8.1 : 8.1 + Math.min((value - 3) / 2, 1) * 5.4;
+      let center = positionAt(stops, value);
+      if (following && value < .25) {
+        const blend = value / .25;
         center = [113.72 + (center[0] - 113.72) * blend, 22.7 + (center[1] - 22.7) * blend];
       }
-      if (playingRef.current) {
-        // Follow the same progressive curve endpoint on every animation frame.
-        map.jumpTo({ center, zoom });
-      }
-      else map.easeTo({ center, zoom, duration: 700 });
-    }
-  }, [progress, ready, stops]);
+      if (following) map.jumpTo({ center, zoom });
+      else { map.stop(); map.easeTo({ center: value === 0 ? [113.72, 22.7] : center, zoom, duration: 700 }); }
+    };
+    drawRef.current(progressRef.current, false);
+    return () => { drawRef.current = () => {}; };
+  }, [ready, stops]);
   return <section className="map-section journey-map" aria-label="行踪漫游地图">
-    <div ref={container} className="map-canvas" data-testid="journey-canvas" data-progress={progress} data-map-idle={mapIdle} data-complete={finished} data-route-points={progress > 0 ? Math.ceil(progress) + 1 : 0} data-camera-longitude={positionAt(stops, progress)[0]} data-line-width={mobile ? 1.5 : 2} />
+    <div ref={container} className="map-canvas" data-testid="journey-canvas" data-map-idle="false" data-complete={finished} data-line-width="3" />
     {!ready && !mapError && <div className="map-loading">正在展开漫游地图…</div>}
     {mapError && <div className="tile-notice" role="status">{mapError}</div>}
     <div className="journey-controls" aria-label="漫游播放控制">
