@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type Map as LibreMap, Marker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { journeyCoordinates, journeyLineLayer, positionAt, SEGMENT_SECONDS, type JourneyStop } from './journey';
+import { journeyCoordinates, journeyLineLayer, SEGMENT_SECONDS, type JourneyStop } from './journey';
 import type { Place } from './data';
 
 function readingPadding(map: LibreMap, panelOpen: boolean) {
@@ -12,7 +12,8 @@ function readingPadding(map: LibreMap, panelOpen: boolean) {
     const top = Math.min(controls ? controls.offsetTop + controls.offsetHeight + 12 : 220, Math.max(0, height - bottom - 40));
     return { top, bottom, left: 0, right: 0 };
   }
-  return { top: 0, left: 0, right: panelOpen && map.getContainer().clientWidth >= 900 ? 488 : 0, bottom: 0 };
+  const controls = map.getContainer().parentElement?.querySelector<HTMLElement>('.journey-controls');
+  return { top: 82, left: 24, right: panelOpen && map.getContainer().clientWidth >= 900 ? 488 : 24, bottom: controls ? controls.offsetHeight + 65 : 230 };
 }
 
 export default function JourneyMap({ stops, panelOpen, onStop }: { stops: JourneyStop[]; panelOpen: boolean; onStop: (record: Place) => void }) {
@@ -52,7 +53,9 @@ export default function JourneyMap({ stops, panelOpen, onStop }: { stops: Journe
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
     const markers = stops.map((stop, index) => {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'journey-marker upcoming';
-      button.textContent = String(stop.step); button.setAttribute('aria-label', `漫游第${stop.step}站 ${stop.name}`);
+      const number = document.createElement('span'); number.textContent = String(stop.step);
+      const label = document.createElement('span'); label.className = 'journey-stop-label'; label.textContent = stop.name; label.setAttribute('aria-hidden', 'true');
+      button.append(number, label); button.setAttribute('aria-label', `漫游第${stop.step}站 ${stop.name}`);
       button.title = `${stop.name} · ${stop.english}`; button.addEventListener('click', () => selectRef.current(index));
       elements.current[index] = button;
       return new Marker({ element: button, anchor: 'center' }).setLngLat(stop.coordinates).addTo(map);
@@ -104,12 +107,16 @@ export default function JourneyMap({ stops, panelOpen, onStop }: { stops: Journe
       map.easeTo({ center: [113.72, 22.7], zoom: 8.1, duration: 700 });
     } else {
       const zoom = progress < 3 ? 8.1 : 8.1 + Math.min((progress - 3) / 2, 1) * 5.4;
-      let center = positionAt(stops, progress);
+      let center = stops[active].coordinates;
       if (progress < .25) {
         const blend = progress / .25;
         center = [113.72 + (center[0] - 113.72) * blend, 22.7 + (center[1] - 22.7) * blend];
       }
-      if (playingRef.current) map.jumpTo({ center, zoom });
+      if (playingRef.current) {
+        const previous = map.getCenter();
+        // Follow the reached gold marker within the unobstructed viewport.
+        map.jumpTo({ center: [previous.lng + (center[0] - previous.lng) * .12, previous.lat + (center[1] - previous.lat) * .12], zoom });
+      }
       else map.easeTo({ center, zoom, duration: 700 });
     }
   }, [progress, ready, stops]);
@@ -121,7 +128,6 @@ export default function JourneyMap({ stops, panelOpen, onStop }: { stops: Journe
       <div className="journey-current" aria-live="polite"><span className="journey-step">{String(current.step).padStart(2, '0')} / 12</span><strong>{current.name}</strong><span lang="en">{current.english}</span></div>
       <div className="journey-actions"><button className="journey-play" disabled={!ready} onClick={togglePlayback}>{playing ? '暂停' : finished ? '再次播放' : progress > 0 ? '继续' : '播放'}</button><button onClick={restart}>重新开始</button><label>速度 <select aria-label="播放速度" value={speed} onChange={event => setSpeed(Number(event.target.value))}>{[.5, 1, 2, 4].map(value => <option key={value} value={value}>{value}×</option>)}</select></label></div>
       <label className="journey-seek">选择地点<select aria-label="选择漫游地点" value={active} onChange={event => seek(Number(event.target.value))}>{stops.map((stop, index) => <option value={index} key={stop.step}>{stop.step}. {stop.name} — {stop.english}</option>)}</select></label>
-      <p className="journey-disclaimer">按叙事次序示意连点，不代表真实道路、水路或精确行程。</p>
     </div>
   </section>;
 }

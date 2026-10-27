@@ -181,7 +181,7 @@ h1 { font-family: var(--serif); font-size: 27px; font-weight: 500; letter-spacin
 }
 /* Curated narrative journey: no source-record renumbering or inferred roads. */
 .place-information { margin-top: 26px; padding-top: 17px; border-top: 1px solid var(--paper-edge); }
-.journey-controls { position: absolute; z-index: 2; left: 24px; bottom: 42px; width: min(440px, calc(100% - 48px)); padding: 18px 21px 15px; background: var(--paper); border: 1px solid var(--paper-edge); border-top: 3px solid var(--crimson); box-shadow: 0 5px 18px #153a4a25; }
+.journey-controls { position: absolute; z-index: 2; left: 24px; bottom: 42px; width: min(330px, calc(100% - 48px)); padding: 13px 16px 12px; background: var(--paper); border: 1px solid var(--paper-edge); border-top: 3px solid var(--crimson); box-shadow: 0 5px 18px #153a4a25; }
 .journey-current { display: flex; flex-wrap: wrap; gap: 7px 12px; align-items: baseline; color: var(--ink-blue); }
 .journey-step { color: var(--umber); font-family: var(--latin-serif); font-size: 12px; }
 .journey-current strong { font-weight: 500; font-size: 19px; }
@@ -210,9 +210,14 @@ h1 { font-family: var(--serif); font-size: 27px; font-weight: 500; letter-spacin
   .journey-map .tile-notice { top: auto; bottom: 28px; }
 }
 @media(min-width:900px) {
-  .workspace:not(.panel-collapsed) .journey-controls { width: min(440px, calc(100% - 536px)); }
+  .workspace:not(.panel-collapsed) .journey-controls { width: min(330px, calc(100% - 536px)); }
 }
 @media(min-width:651px) and (max-width:899px) {
   .workspace:not(.panel-collapsed) .journey-controls { width: calc(52% - 52px); padding: 12px; }
   .journey-actions { gap: 7px; }
 }
+
+/* Reached stop caption floats above its gold marker. */
+.journey-stop-label { display: none; position: absolute; left: 50%; bottom: calc(100% + 9px); transform: translateX(-50%); width: max-content; max-width: 220px; padding: 6px 12px; background: var(--paper); color: var(--ink-blue); border: 1px solid var(--aged-brown); box-shadow: 0 2px 6px #153a4a25; font: 600 18px serif; pointer-events: none; }
+.journey-marker.active .journey-stop-label { display: block; }
+@media (max-width: 650px) { .journey-stop-label { font-size: 15px; padding: 5px 9px; } }

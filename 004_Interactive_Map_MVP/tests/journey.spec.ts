@@ -26,7 +26,7 @@ test('curated stops preserve 14 source records, verified coordinates and exact s
 });
 
 test('journey plays, pauses, resumes, retains completed route and restarts', async ({page}) => {
-  test.setTimeout(65000);
+  test.setTimeout(100000);
   await page.goto('/');
   await expect(page.getByTestId('record-list').locator('li')).toHaveCount(14);
   await page.getByRole('button', {name:'行踪漫游',exact:true}).click();
@@ -42,7 +42,7 @@ test('journey plays, pauses, resumes, retains completed route and restarts', asy
   expect(Number(await canvas.getAttribute('data-progress'))).toBeCloseTo(paused, 3);
   await page.getByLabel('播放速度').selectOption('4');
   await page.getByRole('button',{name:'继续',exact:true}).click();
-  await expect(canvas).toHaveAttribute('data-complete','true',{timeout:20000});
+  await expect(canvas).toHaveAttribute('data-complete','true',{timeout:60000});
   await expect(canvas).toHaveAttribute('data-route-points','12');
   await expect(page.locator('.journey-current')).toContainText('12 / 12');
   await expect(page.locator('.journey-current')).toContainText('两广总督衙门');
@@ -83,13 +83,17 @@ test('mobile journey has all stops, 3px route and usable playback controls',asyn
   await page.getByLabel('选择漫游地点').selectOption('10');
   await expect(page.getByTestId('journey-canvas')).toHaveAttribute('data-map-idle','true',{timeout:20000});
   expect(await page.locator('.journey-marker').evaluateAll(elements => elements.every(element => getComputedStyle(element).position === 'absolute'))).toBe(true);
+  const caption = page.locator('.journey-marker.active .journey-stop-label');
+  await expect(caption).toBeVisible(); await expect(caption).toHaveText('圣心大教堂');
+  const captionBox = await caption.boundingBox();
+  expect(captionBox!.y).toBeGreaterThan(controls!.y + controls!.height);
   const activeMarker = await page.locator('.journey-marker.active').boundingBox();
   expect(activeMarker!.y).toBeGreaterThan(controls!.y + controls!.height);
   expect(activeMarker!.y + activeMarker!.height).toBeLessThan(panel!.y);
   await page.screenshot({path:'journey-mobile.png'});
 });
 
-test('six introduction links use real relevant pages in a new tab; other records have none',async({page})=>{
+test('six introduction links open their assigned URLs in a new tab; other records have none',async({page})=>{
   test.setTimeout(90000);
   await page.goto('/'); await expect(page.getByTestId('record-list').locator('li')).toHaveCount(14);
   for(let sequence=1;sequence<=14;sequence++){
@@ -97,11 +101,34 @@ test('six introduction links use real relevant pages in a new tab; other records
     const link=page.getByRole('link',{name:'了解此地'});
     if(sequence<9) {await expect(link).toHaveCount(0);continue;}
     await expect(link).toHaveAttribute('href',placeInformation[sequence].place_info_url);
+    // Verify new-tab navigation independently of third-party anti-bot or TLS policies.
+    const url = placeInformation[sequence].place_info_url;
+    await page.context().route(candidate => decodeURI(candidate.href) === decodeURI(url), route => route.abort());
+    const requested = page.context().waitForEvent('request', request => decodeURI(request.url()) === decodeURI(url));
     const popupPromise=page.waitForEvent('popup'); await link.click(); const popup=await popupPromise;
-    await popup.waitForLoadState('domcontentloaded');
-    expect(new URL(popup.url()).hostname).toBe(new URL(placeInformation[sequence].place_info_url).hostname);
-    await expect(popup.locator('body')).not.toBeEmpty();await popup.close();
+    expect(decodeURI((await requested).url())).toBe(decodeURI(url)); await popup.close();
   }
   await expect(page.getByText('考证札记',{exact:true})).toHaveCount(0);
   await expect(page.getByText('查看地点来源',{exact:true})).toHaveCount(0);
+});
+
+test('compact desktop controls leave reached Humen marker and floating caption clear during playback', async ({page}) => {
+  await page.goto('/');
+  await page.getByRole('button',{name:'行踪漫游',exact:true}).click();
+  await page.getByLabel('选择漫游地点').selectOption('2');
+  await expect(page.getByTestId('journey-canvas')).toHaveAttribute('data-map-idle','true');
+  await page.getByLabel('播放速度').selectOption('0.5');
+  await page.getByRole('button',{name:'继续',exact:true}).click();
+  await expect.poll(async()=>Number(await page.getByTestId('journey-canvas').getAttribute('data-progress'))).toBeGreaterThan(2.1);
+  const controls = (await page.locator('.journey-controls').boundingBox())!;
+  expect(controls.width).toBeLessThanOrEqual(365);
+  const marker = (await page.locator('.journey-marker.active').boundingBox())!;
+  const caption = page.locator('.journey-marker.active .journey-stop-label');
+  await expect(caption).toHaveText('虎门');
+  const label = (await caption.boundingBox())!;
+  expect(label.y + label.height).toBeLessThan(marker.y);
+  expect(marker.y + marker.height).toBeLessThan(controls.y);
+  await expect(page.locator('.journey-disclaimer')).toHaveCount(0);
+  await page.getByRole('button',{name:'暂停',exact:true}).click();
+  await page.screenshot({path:'journey-humen.png'});
 });

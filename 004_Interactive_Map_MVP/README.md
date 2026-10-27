@@ -123,17 +123,19 @@ Playwright使用系统Chromium（若存在）；也可设置 `PLAYWRIGHT_CHROMIU
 
 “考证札记”不再显示，但原札记仍保存在 `src/researchNotes.ts`，CSV的historical_notes读取支持及全部坐标来源均保留。
 
-“了解此地”使用独立的 `place_info_url` 元数据（`src/placeInfo.ts`），在读取时附加到阅读模型，不写回CSV、不覆盖 `coordinate_source`。只对六处指定地点显示，新标签打开并设置noopener／noreferrer；其他地点隐藏。已实际读取页面内容并核对地点，访问状态均200：
+“了解此地”使用独立的 `place_info_url` 元数据（`src/placeInfo.ts`），在读取时附加到阅读模型，不写回CSV、不覆盖 `coordinate_source`。只对六处指定地点显示，新标签打开并设置noopener／noreferrer；其他地点隐藏。其中四个地址按用户最新指定更新；访问限制见下文：
 
 | 源sequence | 地点 | 介绍来源 |
 |---|---|---|
 | 9 | 华林寺 | [维基百科地点专页](https://zh.wikipedia.org/wiki/华林寺_(广州)) |
-| 10 | 五仙观 | [维基百科地点专页](https://zh.wikipedia.org/wiki/五仙观) |
-| 11 | 海幢寺 | [维基百科地点专页](https://zh.wikipedia.org/wiki/海幢寺) |
+| 10 | 五仙观 | [地点介绍](https://www.yuexiu.gov.cn/zjyx/yxjd/ycty/content/post_3560955.html) |
+| 11 | 海幢寺 | [地点介绍](https://cn.tripadvisor.com/Attraction_Review-g298555-d1797602-Reviews-Hoi_Tong_Monastery-Guangzhou_Guangdong.html) |
 | 12 | 镇海楼 | [广州博物馆镇海楼展区指引](https://www.guangzhoumuseum.cn/website_cn/Web/Visit/VisitGuide.aspx?id=16) |
-| 13 | 圣心大教堂 | [越秀区政府地点介绍](https://www.yuexiu.gov.cn/zjyx/yxjd/zjwh/content/post_8665100.html) |
-| 14 | 两广总督衙门 | [越秀区政府街巷史·小东营段落](https://www.yuexiu.gov.cn/zjyx/yxgk/whhs/content/post_3560709.html#:~:text=小东营位于越华路) |
+| 13 | 圣心大教堂 | [地点介绍](https://cn.tripadvisor.com/Attraction_Review-g298555-d553965-Reviews-Sacred_Heart_Cathedral-Guangzhou_Guangdong.html) |
+| 14 | 两广总督衙门 | [地点介绍](https://www.zhongguodiqing.cn/dqwh/dqwh_dqyj/201907/t20190725_4938968.shtml) |
 
-前三处部分旧政府／图书馆链接返回404或503，故采用可核实的百科专页作为备选。总督衙门使用官方文章中介绍清两广总督署及今省民政厅所在地的段落，附文本定位；不以坐标PDF或泛机构主页代替地点介绍。链接今后若失效且无可靠替代，应将对应place_info_url留空以隐藏。
+华林寺、镇海楼介绍来源不变；五仙观、海幢寺、圣心大教堂和两广总督衙门改用用户提供的网页。当前云环境请求前述前三个新地址返回HTTP403，中国地情网返回200。自动测试验证指定URL和新标签导航，不将第三方拒绝访问误报为页面已成功读取。
+
+漫游控制面板缩窄至330px内容宽度，镜头为控制面板与阅读页预留空间；当前到达站的黄色标记上方单独显示地点浮签。播放时镜头平滑跟随已到达站，面板中的路线说明按要求移除；示意路线的方法仍见本README。
 
 Codespaces更新方式不变：停止旧Vite，从仓库根目录 `git pull --ff-only origin main`，进入004后运行 `npm run dev`，打开现有5173转发地址。不创建永久部署、不修改仓库隐私。
