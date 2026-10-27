@@ -29,7 +29,7 @@ function tile(url: string, requestHeaders: Record<string, string>) {
 }
 export const test = base.extend({
   page: async ({ page }, use) => {
-    if (proxy && caFile) await page.route('https://tiles.openfreemap.org/**', async route => {
+    if (proxy && caFile) await page.context().route(url => ['tiles.openfreemap.org', 'zh.wikipedia.org', 'www.yuexiu.gov.cn', 'www.guangzhoumuseum.cn'].includes(url.hostname), async route => {
       try { const result = await tile(route.request().url(), route.request().headers()); await route.fulfill({ status: result.status, body: result.body, contentType: result.contentType }); }
       catch { await route.abort('failed'); }
     });

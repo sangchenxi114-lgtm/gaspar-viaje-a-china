@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures';
 import { readFileSync } from 'node:fs';
 import Papa from 'papaparse';
+import { placeInformation } from '../src/placeInfo';
 const records = Papa.parse<Record<string,string>>(readFileSync('public/data/places_geocoded.csv','utf8'), { header: true, skipEmptyLines: true }).data;
 
 test('14 records, five overview markers, city aggregation and Guangzhou drill-down', async ({ page }) => {
@@ -21,7 +22,7 @@ test('14 records, five overview markers, city aggregation and Guangzhou drill-do
   await expect(page.getByTestId('historical-record')).toContainText('Macao');
   await page.getByRole('button', { name: '香港，2条记录', exact: true }).click();
   await expect(page.getByTestId('record-list').locator('li')).toHaveCount(2);
-  await expect(page.getByTestId('historical-record')).toContainText('并非节庆的具体现场');
+  await expect(page.getByTestId('historical-record').locator('.historical-note')).toHaveCount(0);
   await page.getByRole('button', { name: '广州，1条记录', exact: true }).click();
   await page.getByRole('button', { name: '探索广州 ↗' }).click();
   await expect(page.getByRole('button', { name: '广州细读 ↗' })).toHaveAttribute('aria-pressed','true');
@@ -51,7 +52,13 @@ test('all Spanish quotations, missing-date labels, precision and valid source li
     await expect(article.getByTestId('spanish-quote')).toHaveText(record.original_spanish);
     await expect(article.locator('.precision-badge')).toHaveCount(0);
     await expect(article).not.toContainText(/approximate|city-level|DOCUMENT/);
-    await expect(article.locator('a.source-link')).toHaveAttribute('href',record.coordinate_source);
+    const info = placeInformation[Number(record.sequence)];
+    if (info) {
+      await expect(article.locator('a.source-link')).toHaveAttribute('href', info.place_info_url);
+      await expect(article.locator('a.source-link')).toHaveAttribute('target', '_blank');
+      expect(info.place_info_url).not.toBe(record.coordinate_source);
+    } else await expect(article.locator('a.source-link')).toHaveCount(0);
+    await expect(article.locator('.historical-note')).toHaveCount(0);
     if (record.date === 'null') {
       await expect(article.locator('time')).toHaveCount(0);
       await expect(article).toContainText('原笔记未载确切日期');
@@ -100,11 +107,14 @@ test('archival redesign removes technical chrome, supports page references witho
   await expect(page.getByTestId('record-list').locator('li')).toHaveCount(14);
   await page.locator('[data-sequence="10"]').click();
   await expect(page.locator('.page-reference')).toHaveCount(0);
-  await expect(page.locator('.historical-note')).toContainText('尚需史料印证');
+  await expect(page.locator('.historical-note')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '考证札记' })).toHaveCount(0);
   await expect(page.locator('header')).not.toContainText('数字人文');
   await expect(page.locator('body')).not.toContainText('READ THE JOURNEY');
   await expect(page.locator('body')).not.toContainText('PEARL RIVER DELTA');
   await expect(page.locator('.brand-lettering img')).toBeVisible();
+  // Without the removed notes, short records may fit; constrain height to exercise actual overflow.
+  await page.setViewportSize({width:1440,height:700});
   const panel = page.getByRole('complementary');
   const overflow = await panel.evaluate(element => {
     element.scrollTop = element.scrollHeight;

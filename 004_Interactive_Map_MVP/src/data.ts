@@ -6,7 +6,7 @@ export interface Place {
   location_precision: string; latitude: number | null; longitude: number | null;
   coordinate_status: Precision; place_type: string | null; original_spanish: string | null;
   chinese_translation: string | null; coordinate_source: string | null;
-  page_number?: string | null; historical_notes?: string | null;
+  page_number?: string | null; historical_notes?: string | null; place_info_url?: string | null;
 }
 export interface Group { key: string; label: string; coordinates: [number, number]; records: Place[] }
 export const isPresent = (value: string | undefined | null) => Boolean(value?.trim() && value.trim().toLowerCase() !== 'null');
@@ -29,7 +29,7 @@ export function parsePlaces(text: string): Place[] {
     return { ...row, sequence: Number(row.sequence), date: nullable(row.date), gaspar_name: nullable(row.gaspar_name),
       city: nullable(row.city), latitude: lat, longitude: lon, place_type: nullable(row.place_type),
       original_spanish: nullable(row.original_spanish), chinese_translation: nullable(row.chinese_translation), coordinate_source: nullable(row.coordinate_source),
-      page_number: nullable(row.page_number), historical_notes: nullable(row.historical_notes) } as Place;
+      page_number: nullable(row.page_number), historical_notes: nullable(row.historical_notes), place_info_url: nullable(row.place_info_url) } as Place;
   }).sort((a, b) => a.sequence - b.sequence);
   if (records.length !== 14 || records.some((r, i) => r.sequence !== i + 1)) throw new Error('数据应包含按1–14排列的14条记录。');
   return records;
