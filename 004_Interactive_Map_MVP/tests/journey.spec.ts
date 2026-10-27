@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import Papa from 'papaparse';
 import { readFileSync } from 'node:fs';
 import { parsePlaces } from '../src/data';
-import { buildJourneyStops, journeyCoordinates, journeyLineLayer } from '../src/journey';
+import { buildJourneyStops, journeyCoordinates, journeyLineLayer, CURVE_SAMPLES, positionAt } from '../src/journey';
 import { researchNotes } from '../src/researchNotes';
 import { placeInformation } from '../src/placeInfo';
 const csv = readFileSync('public/data/places_geocoded.csv', 'utf8');
@@ -15,10 +15,11 @@ test('curated stops preserve 14 source records, verified coordinates and exact s
   expect(stops.map(s => s.record.sequence)).toEqual([1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
   expect(stops).toHaveLength(12); expect(original).toHaveLength(14);
   expect(JSON.stringify(original)).toBe(before);
-  expect(journeyCoordinates(stops, 11)).toEqual(stops.map(stop => [stop.record.longitude, stop.record.latitude]));
+  expect(stops.map((_, index) => journeyCoordinates(stops, 11)[index * CURVE_SAMPLES])).toEqual(stops.map(stop => [stop.record.longitude, stop.record.latitude]));
+  expect(positionAt(stops, 1.5)).not.toEqual([(stops[1].coordinates[0]+stops[2].coordinates[0])/2,(stops[1].coordinates[1]+stops[2].coordinates[1])/2]);
   expect(journeyCoordinates(stops, 0)).toEqual([]);
-  expect(journeyLineLayer(false).paint).toEqual({ 'line-color': '#8D2017', 'line-width': 4 });
-  expect(journeyLineLayer(true).paint).toEqual({ 'line-color': '#8D2017', 'line-width': 3 });
+  expect(journeyLineLayer(false).paint).toEqual({ 'line-color': '#8D2017', 'line-width': 2 });
+  expect(journeyLineLayer(true).paint).toEqual({ 'line-color': '#8D2017', 'line-width': 1.5 });
   expect(journeyLineLayer(false).layout).toEqual({ 'line-cap': 'round', 'line-join': 'round' });
   expect(researchNotes[10]).toContain('尚需史料印证');
   expect(Object.keys(placeInformation)).toEqual(['9','10','11','12','13','14']);
@@ -65,11 +66,11 @@ test('journey plays, pauses, resumes, retains completed route and restarts', asy
   await expect(page.locator('.map-marker.overview')).toHaveCount(5,{timeout:20000});
 });
 
-test('mobile journey has all stops, 3px route and usable playback controls',async({page})=>{
+test('mobile journey has all stops, 1.5px route and usable playback controls',async({page})=>{
   await page.setViewportSize({width:390,height:844}); await page.goto('/');
   await expect(page.getByTestId('record-list').locator('li')).toHaveCount(14);
   await page.getByRole('button',{name:'行踪漫游',exact:true}).click();
-  await expect(page.getByTestId('journey-canvas')).toHaveAttribute('data-line-width','3');
+  await expect(page.getByTestId('journey-canvas')).toHaveAttribute('data-line-width','1.5');
   await expect(page.getByLabel('选择漫游地点').locator('option')).toHaveCount(12);
   await page.getByLabel('选择漫游地点').selectOption('10');
   await expect(page.locator('.journey-current')).toContainText('圣心大教堂');
@@ -129,6 +130,16 @@ test('compact desktop controls leave reached Humen marker and floating caption c
   expect(label.y + label.height).toBeLessThan(marker.y);
   expect(marker.y + marker.height).toBeLessThan(controls.y);
   await expect(page.locator('.journey-disclaimer')).toHaveCount(0);
+  const cameraBefore = Number(await page.getByTestId('journey-canvas').getAttribute('data-actual-camera-lng'));
+  const progressBefore = Number(await page.getByTestId('journey-canvas').getAttribute('data-progress'));
+  await expect.poll(async()=>Number(await page.getByTestId('journey-canvas').getAttribute('data-progress'))).toBeGreaterThan(progressBefore + .05);
+  const cameraAfter = Number(await page.getByTestId('journey-canvas').getAttribute('data-actual-camera-lng'));
+  expect(Math.abs(cameraAfter-cameraBefore)).toBeGreaterThan(.00001);
   await page.getByRole('button',{name:'暂停',exact:true}).click();
   await page.screenshot({path:'journey-humen.png'});
+  await page.getByLabel('选择漫游地点').selectOption('8');
+  await expect(page.getByTestId('journey-canvas')).toHaveAttribute('data-map-idle','true');
+  const circles = await page.locator('.journey-marker').evaluateAll(elements => elements.map(element => {const r=element.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2};}));
+  for(let a=0;a<circles.length;a++)for(let b=a+1;b<circles.length;b++)expect(Math.hypot(circles[a].x-circles[b].x,circles[a].y-circles[b].y)).toBeGreaterThan(40);
+  await page.screenshot({path:'journey-guangzhou.png'});
 });

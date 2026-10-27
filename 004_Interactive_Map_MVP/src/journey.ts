@@ -18,22 +18,31 @@ export function buildJourneyStops(records: Place[]): JourneyStop[] {
   });
 }
 export const SEGMENT_SECONDS = 3.2;
+// Presentation-only cubic interpolation; sampled points are not historical waypoints.
+export const CURVE_SAMPLES = 32;
 export function positionAt(stops: JourneyStop[], progress: number): [number, number] {
-  const index = Math.min(Math.floor(progress), stops.length - 1);
-  const first = stops[index].coordinates, second = stops[Math.min(index + 1, stops.length - 1)].coordinates;
-  const fraction = progress - index;
-  return [first[0] + (second[0] - first[0]) * fraction, first[1] + (second[1] - first[1]) * fraction];
+  const value = Math.max(0, Math.min(progress, stops.length - 1)), i = Math.floor(value), t = value - i;
+  const a = stops[i].coordinates, b = stops[Math.min(i + 1, stops.length - 1)].coordinates;
+  const before = stops[Math.max(0, i - 1)].coordinates, after = stops[Math.min(i + 2, stops.length - 1)].coordinates;
+  const distance = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const control = (origin: [number, number], from: [number, number], to: [number, number], sign: number): [number, number] => {
+    const dx = to[0] - from[0], dy = to[1] - from[1], length = Math.hypot(dx, dy) || 1;
+    return [origin[0] + sign * dx / length * distance * .28, origin[1] + sign * dy / length * distance * .28];
+  };
+  const c = control(a, before, b, 1), d = control(b, a, after, -1), u = 1 - t;
+  return [0, 1].map(axis => u*u*u*a[axis] + 3*u*u*t*c[axis] + 3*u*t*t*d[axis] + t*t*t*b[axis]) as [number, number];
 }
 export function journeyCoordinates(stops: JourneyStop[], progress: number): [number, number][] {
-  if (progress <= 0) return [];
-  const value = Math.min(progress, stops.length - 1), index = Math.floor(value);
-  const complete = stops.slice(0, index + 1).map(stop => stop.coordinates);
-  // Only a temporary drawing endpoint is interpolated; no geographic waypoints are invented or saved.
-  return value > index ? [...complete, positionAt(stops, value)] : complete;
+  const value = Math.max(0, Math.min(progress, stops.length - 1));
+  if (!value) return [];
+  const points: [number, number][] = [];
+  for (let sample = 0; sample <= Math.floor(value * CURVE_SAMPLES); sample++) points.push(positionAt(stops, sample / CURVE_SAMPLES));
+  if (value * CURVE_SAMPLES % 1) points.push(positionAt(stops, value));
+  return points;
 }
 
 export function journeyLineLayer(mobile: boolean): LineLayerSpecification {
   return { id: 'journey-route', type: 'line', source: 'journey-route',
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': '#8D2017', 'line-width': mobile ? 3 : 4 } };
+    paint: { 'line-color': '#8D2017', 'line-width': mobile ? 1.5 : 2 } };
 }
